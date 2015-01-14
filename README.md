@@ -1,5 +1,5 @@
-# BlackJack Game #
-A simplified blackjack script with an AI for the dealer
+# BlackJack Game - OOP #
+A simplified blackjack script with an AI for the dealer and other players
 
 **Features of BlackJack Game**
   1. Allows use of multiple decks
