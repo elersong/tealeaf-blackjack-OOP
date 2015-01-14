@@ -33,43 +33,51 @@ module Thinkable
 end
 
 class Dealer
-  #award
-  #card
+  attr_accessor :hand, :total
   
-  def initialize
+  def initialize(game)
     @hand = []
+    @game_obj = game
+    @total = 0
   end
   
-  # def dealer_strategy(game_hash) # <= Hash
-  #   return "s" if ((total_of_hand game_hash[:dealer_hand])[0] <= 21) && ((total_of_hand game_hash[:dealer_hand])[0] > 17)
-  #   "h"
-  # end # => String
+  def dealers_turn
+    while (Deck.total_of_hand(@hand) < 21) && (Deck.total_of_hand(@hand) > 17)
+      break if Deck.total_of_hand @hand == 21 #blackjack
+      if Deck.total_of_hand(@hand) < 17
+        @game_obj.game_deck.deal(self)
+      else
+        [true,false].sample ? @game_obj.game_deck.deal(self) : break
+      end
+    end
+    winnings_to_winners
+  end
   
-  # def winnings_to_winners(game_hash) # <= Hash
-  #   game_hash[:names].each_index do |index|
-  #     if (total_of_hand game_hash[:current_hands][index])[0] == (total_of_hand game_hash[:dealer_hand])[0]
-  #       game_hash[:wallets][index] += game_hash[:current_bets][index] # 0 net loss on bet
+  private
+  
+  def winnings_to_winners
+    @game_obj.players.each do |player|
+      if (Deck.total_of_hand player.hand) == (Deck.total_of_hand @hand)
+        player.wallet += player.bet # 0 net loss on bet
         
-  #     elsif (total_of_hand game_hash[:current_hands][index])[0] == 21 && game_hash[:decks] > 1
-  #       game_hash[:wallets][index] += (game_hash[:current_bets][index] * 4) # 3:1 payout
+      elsif (Deck.total_of_hand player.hand) == 21 && @game_obj.number_of_decks > 1
+        player.wallet += (player.bet * 4) # 3:1 payout
         
-  #     elsif (total_of_hand game_hash[:current_hands][index])[0] == 21 
-  #       game_hash[:wallets][index] += (game_hash[:current_bets][index] * 3) # 2:1 payout
+      elsif (Deck.total_of_hand player.hand) == 21 
+        player.wallet += (player.bet * 3) # 2:1 payout
         
-  #     elsif (total_of_hand game_hash[:current_hands][index])[0] > (total_of_hand game_hash[:dealer_hand])[0] && (total_of_hand game_hash[:current_hands][index])[0] < 99
-  #       game_hash[:wallets][index] += (game_hash[:current_bets][index] * 2) # 1:1 payout
+      elsif (Deck.total_of_hand player.hand) > (Deck.total_of_hand @hand) && (Deck.total_of_hand player.hand) < 99
+        player.wallet += (player.bet * 2) # 1:1 payout
       
-  #     elsif (total_of_hand game_hash[:dealer_hand])[0] > 21 
-  #       game_hash[:wallets][index] += (game_hash[:current_bets][index] * 2) # 1:1 payout
-  #     end
-  #   end
-  #   game_hash
-  # end # => Hash
+      elsif (Deck.total_of_hand player.hand) > 21 
+        player.wallet += (player.bet * 2) # 1:1 payout
+      end
+    end
+  end
   
 end
 
 class Deck
-  #shuffle, deal
   attr_accessor :array, :number_of_decks
   
   def initialize(number_of_decks) # <= Integer
@@ -98,13 +106,13 @@ class Deck
       player.hand << card
     end
     
-    player.total = total_of_hand player.hand
+    player.total = Deck.total_of_hand(player.hand)
   end
   
-  private
+  def self.total_with_aces(subtotal, number_of_aces_in_hand) # <= Integer, Integer
   
-  def total_with_aces(subtotal, number_of_aces_in_hand) # <= Integer, Integer
-    return 100 if (subtotal + number_of_aces_in_hand > 21)
+    return 100 if (subtotal + number_of_aces_in_hand > 21) # so any total greater than 100 means busted
+    
     case number_of_aces_in_hand
       when 0
         total = subtotal
@@ -120,7 +128,7 @@ class Deck
     total
   end # => Integer
   
-  def total_of_hand(hand) # <= Array
+  def self.total_of_hand(hand) # <= Array
     return 0 if hand == "BUSTED"
     total = 0
     aces = ["[♠ A]","[♣ A]","[♥ A]","[♦ A]"]
@@ -140,102 +148,123 @@ class Deck
 end
 
 class Game
-  #display, update, reset
   attr_accessor :number_of_decks, :players, :game_deck, :dealer
   
   def initialize 
-    @number_of_decks = (prompt "Choose Difficulty: 1 (easy) - 5 (hard)").to_i
+    @number_of_decks = (Game.prompt "Choose Difficulty: 1 (easy) - 5 (hard)").to_i
     
     @players = []
-    @players << Player.new(prompt "What is your name?")
+    @players << Player.new(self, (Game.prompt "What is your name?"))
     rand(4).times do
-      @players << Player.new
+      @players << Player.new(self)
     end
     
     @game_deck = Deck.new @number_of_decks
     
-    @dealer = Dealer.new
+    @dealer = Dealer.new(self)
   end
   
-  # def display_header # <= nil
-  #   system("clear")
-  #   puts "Let's Play BlackJack"
-  #   puts "===================="
-  #   puts
-  # end # => nil
+  def display_header
+    system("clear")
+    puts "Let's Play BlackJack"
+    puts "===================="
+    puts
+  end
   
-  # def format_player_status(game_hash, player_number) # <= Hash
-  #   hand_string = ""
-  #   hand_array = game_hash[:current_hands][player_number]
+  def format_player_status(player)
+    hand_string = ""
+    hand_array = player.hand
     
-  #   hand_array.each do |card|
-  #     hand_string << "#{card} "
-  #   end
+    hand_array.each do |card|
+      hand_string << "#{card} "
+    end
     
-  #   hand_total = (total_of_hand hand_array)[0]
-  #   hand_total = "BUSTED" if hand_total > 21
-  #   hand_total = "BLACKJACK" if hand_total == 21
+    hand_total = (Deck.total_of_hand hand_array)[0]
+    hand_total = "BUSTED" if hand_total > 21
+    hand_total = "BLACKJACK" if hand_total == 21
     
-  #   puts "#{game_hash[:names][player_number]} ($#{game_hash[:wallets][player_number]}) | Bet $#{game_hash[:current_bets][player_number]}"
-  #   puts "-----------------------"
-  #   puts "#{hand_string} (#{hand_total})"
-  #   puts ""
-  # end # => nil
+    puts "#{player.name} ($#{player.wallet}) | Bet $#{player.bet}"
+    puts "-----------------------"
+    puts "#{hand_string} (#{hand_total})"
+    puts ""
+  end
   
-  def prompt(msg) # <= String
+  def self.prompt(msg) # <= String
     say msg
     gets.chomp
   end # => String
   
-  def say(msg) # <= String
+  def self.say(msg) # <= String
     puts " => #{msg}"
   end # => nil
   
-  # def update_playing_table(game_hash) # <= Hash
-  #   display_header
-  #   game_hash[:names].each_index do |index|
-  #     format_player_status game_hash, index
-  #   end
+  def update_playing_table
+    display_header
+    @players.each do |player|
+      format_player_status player
+    end
     
-  #   dealer_hand_string = ""
-  #   game_hash[:dealer_hand].each do |card|
-  #     dealer_hand_string << "#{card} "
-  #   end
+    dealer_hand_string = ""
+    @dealer.hand.each do |card|
+      dealer_hand_string << "#{card} "
+    end
     
-  #   dealer_bust_status = ((total_of_hand game_hash[:dealer_hand])[0] > 21) ? "BUSTED" : (total_of_hand game_hash[:dealer_hand])[0]
+    dealer_bust_status = (Deck.total_of_hand(@dealer.hand) > 21) ? "BUSTED" : (Deck.total_of_hand(@dealer.hand))
     
-  #   puts ""
-  #   puts "DEALER: #{dealer_hand_string} (#{dealer_bust_status})"
-  #   puts ""
-  # end # => nil
+    puts ""
+    puts "DEALER: #{dealer_hand_string} (#{dealer_bust_status})"
+    puts ""
+  end 
+  
+  def clear_hands
+    @players.each do |player|
+      player.hand = []
+    end
+    @dealer.hand = []
+  end
+  
+  def deal_first_two_cards
+    @players.each do |player|
+      self.game_deck.deal player
+    end
+  end
   
 end
 
 class Player
   include Thinkable
-  #hit, stay, bet
-  #hand
-  attr_accessor :wallet, :hand, :bet, :total
-  attr_reader :name
   
-  def initialize(name = nil)
+  attr_accessor :wallet, :hand, :bet, :total
+  attr_reader :name, :game_obj
+  
+  def initialize(game, name = nil)
     @name = name.nil? ? File.readlines("names.txt").sample.strip.capitalize : name
     @wallet = 100
     @hand = []
     @bet = 0
     @total = 0
+    @game_obj = game
   end
   
-  # def place_bet(game_hash, player_number, bet = 0) # <= Hash
-  #   bet = (prompt "How much do you want to bet? (minimum of 1)").to_i if bet == 0
-  #   game_hash[:current_bets][player_number] = bet
-  #   game_hash[:wallets][player_number] -= bet
-  #   game_hash
-  # end # => hash
+  def place_bet(type = "")
+    if type == :human
+      @bet = (Game.prompt "How much do you want to bet? (minimum of 1)").to_i.abs
+    else
+      ai_max_bet = (@wallet/4) # 25% of total holdings
+      @bet = rand(ai_max_bet) #pick randomly up to the max bet... feelin lucky, I guess
+    end
+    @wallet -= @bet
+  end
+  
+  def hit
+    @game_obj.game_deck.deal self
+  end
   
 end
 
 
 # ============================================================================== Game Logic
 g = Game.new
+p = g.players[0]
+d = g.dealer
 binding.pry
