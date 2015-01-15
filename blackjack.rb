@@ -29,9 +29,6 @@ require 'pry'
 # Class nouns: Dealer, Player, GameEngine, Deck, Card, Hand, AI
 # Class verbs: shuffle, deal, hit, stay, display, update, award, bet, reset
 
-module Thinkable
-end
-
 class Dealer
   attr_accessor :hand, :total
   
@@ -151,6 +148,69 @@ end
 class Game
   attr_accessor :number_of_decks, :players, :game_deck, :dealer
   
+  def self.run
+    system("clear")
+    g = Game.new
+    
+    loop do
+      
+      # update the game board for new round
+      g.clear_hands
+      g.update_playing_table
+      
+      # gather bets for each player
+      g.players.each do |player|
+        if player == g.players[0]
+          player.place_bet :human
+        else
+          if player.wallet > 0
+            player.place_bet
+          else
+            player.hand = "BUSTED" # unless player has no money to bet
+          end
+        end
+      end
+      
+      # deal out the first 2 cards to everybody
+      g.deal_first_two_cards
+      g.update_playing_table
+      
+      # keep track of whether the human has lost
+      end_game = false
+      
+      # each player takes turn playing
+      g.players.each do |player|
+        
+        # if the player is human
+        if player == g.players[0]
+          end_game = true if player.wallet <= 0
+          while player.hit?
+            player.hit
+            g.update_playing_table
+            break if (Deck.total_of_hand player.hand) > 21
+          end
+        else
+          # if the player is AI
+          while [true, false].sample && player.hand != "BUSTED"
+            player.hit
+            g.update_playing_table
+            break if (Deck.total_of_hand player.hand) > 21
+          end
+        end
+      end
+      break if end_game
+      
+      # now it's the dealer's turn
+      g.dealer.take_turn
+      g.update_playing_table
+      
+      # ask human to play another round
+      break unless g.play_again?
+    end 
+    system("clear")
+    puts "Thanks for Playing!"
+  end
+  
   def initialize 
     @number_of_decks = (Game.prompt "Choose Difficulty: 1 (easy) - 5 (hard)").to_i
     
@@ -227,8 +287,6 @@ class Game
     reply.include?("n") ? false : true
   end
   
-  private
-  
   def display_header
     system("clear")
     puts "Let's Play BlackJack"
@@ -239,8 +297,6 @@ class Game
 end
 
 class Player
-  include Thinkable
-  
   attr_accessor :wallet, :hand, :bet, :total
   attr_reader :name, :game_obj
   
@@ -276,63 +332,5 @@ end
 
 
 # ============================================================================== Game Logic
-system("clear")
-g = Game.new
 
-loop do
-  
-  # update the game board for new round
-  g.clear_hands
-  g.update_playing_table
-  
-  # gather bets for each player
-  g.players.each do |player|
-    if player == g.players[0]
-      player.place_bet :human
-    else
-      if player.wallet > 0
-        player.place_bet
-      else
-        player.hand = "BUSTED" # unless player has no money to bet
-      end
-    end
-  end
-  
-  # deal out the first 2 cards to everybody
-  g.deal_first_two_cards
-  g.update_playing_table
-  
-  # keep track of whether the human has lost
-  end_game = false
-  
-  # each player takes turn playing
-  g.players.each do |player|
-    
-    # if the player is human
-    if player == g.players[0]
-      end_game = true if player.wallet <= 0
-      while player.hit?
-        player.hit
-        g.update_playing_table
-        break if (Deck.total_of_hand player.hand) > 21
-      end
-    else
-      # if the player is AI
-      while [true, false].sample && player.hand != "BUSTED"
-        player.hit
-        g.update_playing_table
-        break if (Deck.total_of_hand player.hand) > 21
-      end
-    end
-  end
-  break if end_game
-  
-  # now it's the dealer's turn
-  g.dealer.take_turn
-  g.update_playing_table
-  
-  # ask human to play another round
-  break unless g.play_again?
-end 
-system("clear")
-puts "Thanks for Playing!"
+Game.run # is simple, no?
