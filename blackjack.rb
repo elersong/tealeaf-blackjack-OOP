@@ -50,7 +50,7 @@ class Dealer
       else
         [true,false].sample ? @game_obj.game_deck.deal(self) : break
       end
-      break if Deck.total_of_hand @hand == 21 #blackjack
+      break if Deck.total_of_hand(@hand) == 21 #blackjack
     end
     winnings_to_winners
   end
@@ -59,19 +59,19 @@ class Dealer
   
   def winnings_to_winners
     @game_obj.players.each do |player|
-      if (Deck.total_of_hand player.hand) == (Deck.total_of_hand @hand)
-        player.wallet += player.bet # 0 net loss on bet
+      if (Deck.total_of_hand player.hand) == (Deck.total_of_hand @game_obj.dealer.hand)
+        player.wallet += player.bet # 0 net loss on bet, "push"
         
       elsif (Deck.total_of_hand player.hand) == 21 && @game_obj.number_of_decks > 1
-        player.wallet += (player.bet * 4) # 3:1 payout
+        player.wallet += (player.bet * 4) # 3:1 payout, non-easy blackjack
         
       elsif (Deck.total_of_hand player.hand) == 21 
-        player.wallet += (player.bet * 3) # 2:1 payout
+        player.wallet += (player.bet * 3) # 2:1 payout, easy blackjack
         
-      elsif (Deck.total_of_hand player.hand) > (Deck.total_of_hand @hand) && (Deck.total_of_hand player.hand) < 99
-        player.wallet += (player.bet * 2) # 1:1 payout
+      elsif (Deck.total_of_hand player.hand) > (Deck.total_of_hand @game_obj.dealer.hand) && (Deck.total_of_hand player.hand) < 99
+        player.wallet += (player.bet * 2) # 1:1 payout, non-blackjack win
       
-      elsif (Deck.total_of_hand player.hand) > 21 
+      elsif (Deck.total_of_hand @game_obj.dealer.hand) > 21 
         player.wallet += (player.bet * 2) # 1:1 payout
       end
     end
@@ -84,7 +84,7 @@ class Deck
   
   def initialize(number_of_decks) # <= Integer
     suits = ["♠","♣","♥","♦"]
-    values = %w(1 2 3 4 5 6 7 8 9 J Q K A)
+    values = %w(2 3 4 5 6 7 8 9 J Q K A)
     deck = []
     
     suits.each do |suit|
@@ -139,12 +139,12 @@ class Deck
     
     hand.each do |card|
       face = card.split("")[3]
-      value = face.to_i if %w(1 2 3 4 5 6 7 8 9).include? face
+      value = face.to_i if %w(2 3 4 5 6 7 8 9).include? face
       value = 10 if %w(Q K J).include? face
       value = 0 if face == "A"
       total += value
     end
-    total = total_with_aces(total, indices_of_aces.count)
+    total = Deck.total_with_aces(total, indices_of_aces.count)
     return total
   end # => Integer
   
@@ -213,6 +213,7 @@ class Game
   def clear_hands
     @players.each do |player|
       player.hand = []
+      player.bet = 0
     end
     @dealer.hand = []
   end
