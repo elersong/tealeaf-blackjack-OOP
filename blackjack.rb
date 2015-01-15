@@ -43,8 +43,7 @@ class Dealer
   
   def take_turn
     @game_obj.game_deck.deal(self)
-    binding.pry
-    while (Deck.total_of_hand(@hand, true) < 21)
+    while (Deck.total_of_hand(@hand) < 21)
       if Deck.total_of_hand(@hand) < 17 
         @game_obj.game_deck.deal(self)
       else
@@ -99,7 +98,7 @@ class Deck
   
   def deal(player) # <= Obj
     if self.array.count <= 3
-      self.array << Deck.new(self.number_of_decks)
+      self.array += Deck.new(self.number_of_decks).array
     end
     
     how_many_cards = player.hand.count < 2 ? 2 : 1
@@ -113,25 +112,24 @@ class Deck
   
   def self.total_with_aces(subtotal, number_of_aces_in_hand) # <= Integer, Integer
   
-    return 100 if (subtotal + number_of_aces_in_hand > 21) # so any total greater than 100 means busted
+    return 100 if (subtotal + number_of_aces_in_hand) > 21 # so any total greater than 100 means busted
     
     case number_of_aces_in_hand
       when 0
         total = subtotal
       when 1
-        total = (subtotal + 11 > 21) ? (subtotal + 1) : (subtotal + 11)
+        total = (subtotal + 11) > 21 ? (subtotal + 1) : (subtotal + 11)
       when 2
-        total = (subtotal + 12 > 21) ? (subtotal + 2) : (subtotal + 12)
+        total = (subtotal + 12) > 21 ? (subtotal + 2) : (subtotal + 12)
       when 3
-        total = (subtotal + 13 > 21) ? (subtotal + 3) : (subtotal + 13)
+        total = (subtotal + 13) > 21 ? (subtotal + 3) : (subtotal + 13)
       when 4
-        total = (subtotal + 14 > 21) ? (subtotal + 4) : (subtotal + 14)
+        total = (subtotal + 14) > 21 ? (subtotal + 4) : (subtotal + 14)
     end
     total
   end # => Integer
   
-  def self.total_of_hand(hand, dealer = false) # <= Array
-    binding.pry if dealer
+  def self.total_of_hand(hand) # <= Array
     return 0 if hand == "BUSTED"
     total = 0
     aces = ["[♠ A]","[♣ A]","[♥ A]","[♦ A]"]
@@ -304,11 +302,15 @@ loop do
   g.deal_first_two_cards
   g.update_playing_table
   
+  # keep track of whether the human has lost
+  end_game = false
+  
   # each player takes turn playing
   g.players.each do |player|
     
     # if the player is human
     if player == g.players[0]
+      end_game = true if player.wallet <= 0
       while player.hit?
         player.hit
         g.update_playing_table
@@ -323,6 +325,7 @@ loop do
       end
     end
   end
+  break if end_game
   
   # now it's the dealer's turn
   g.dealer.take_turn
