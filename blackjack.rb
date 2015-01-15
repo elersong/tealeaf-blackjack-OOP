@@ -41,14 +41,16 @@ class Dealer
     @total = 0
   end
   
-  def dealers_turn
-    while (Deck.total_of_hand(@hand) < 21) && (Deck.total_of_hand(@hand) > 17)
-      break if Deck.total_of_hand @hand == 21 #blackjack
-      if Deck.total_of_hand(@hand) < 17
+  def take_turn
+    @game_obj.game_deck.deal(self)
+    binding.pry
+    while (Deck.total_of_hand(@hand, true) < 21)
+      if Deck.total_of_hand(@hand) < 17 
         @game_obj.game_deck.deal(self)
       else
         [true,false].sample ? @game_obj.game_deck.deal(self) : break
       end
+      break if Deck.total_of_hand @hand == 21 #blackjack
     end
     winnings_to_winners
   end
@@ -128,11 +130,12 @@ class Deck
     total
   end # => Integer
   
-  def self.total_of_hand(hand) # <= Array
+  def self.total_of_hand(hand, dealer = false) # <= Array
+    binding.pry if dealer
     return 0 if hand == "BUSTED"
     total = 0
     aces = ["[♠ A]","[♣ A]","[♥ A]","[♦ A]"]
-    indices_of_aces = hand.each_index.select { |i| aces.include? hand[i] }
+    indices_of_aces = hand.select{ |i| aces.include?(i) }.map{ |i| hand.index(i) }
     
     hand.each do |card|
       face = card.split("")[3]
@@ -164,22 +167,14 @@ class Game
     @dealer = Dealer.new(self)
   end
   
-  def display_header
-    system("clear")
-    puts "Let's Play BlackJack"
-    puts "===================="
-    puts
-  end
-  
   def format_player_status(player)
     hand_string = ""
-    hand_array = player.hand
     
-    hand_array.each do |card|
+    player.hand.each do |card|
       hand_string << "#{card} "
     end
     
-    hand_total = (Deck.total_of_hand hand_array)[0]
+    hand_total = Deck.total_of_hand player.hand
     hand_total = "BUSTED" if hand_total > 21
     hand_total = "BLACKJACK" if hand_total == 21
     
@@ -210,7 +205,6 @@ class Game
     end
     
     dealer_bust_status = (Deck.total_of_hand(@dealer.hand) > 21) ? "BUSTED" : (Deck.total_of_hand(@dealer.hand))
-    
     puts ""
     puts "DEALER: #{dealer_hand_string} (#{dealer_bust_status})"
     puts ""
@@ -227,6 +221,20 @@ class Game
     @players.each do |player|
       self.game_deck.deal player
     end
+  end
+  
+  def play_again?
+    reply = Game.prompt("Go again? Press [enter] for Yes. Press [N] then [enter] for No.").downcase
+    reply.include?("n") ? false : true
+  end
+  
+  private
+  
+  def display_header
+    system("clear")
+    puts "Let's Play BlackJack"
+    puts "===================="
+    puts
   end
   
 end
@@ -260,11 +268,67 @@ class Player
     @game_obj.game_deck.deal self
   end
   
+  def hit?
+    reply = Game.prompt("Type [H] then [enter] for hit. Type [enter] to stay.").downcase
+    reply.include?("h")
+  end
+  
 end
 
 
 # ============================================================================== Game Logic
+system("clear")
 g = Game.new
-p = g.players[0]
-d = g.dealer
-binding.pry
+
+loop do
+  
+  # update the game board for new round
+  g.clear_hands
+  g.update_playing_table
+  
+  # gather bets for each player
+  g.players.each do |player|
+    if player == g.players[0]
+      player.place_bet :human
+    else
+      if player.wallet > 0
+        player.place_bet
+      else
+        player.hand = "BUSTED" # unless player has no money to bet
+      end
+    end
+  end
+  
+  # deal out the first 2 cards to everybody
+  g.deal_first_two_cards
+  g.update_playing_table
+  
+  # each player takes turn playing
+  g.players.each do |player|
+    
+    # if the player is human
+    if player == g.players[0]
+      while player.hit?
+        player.hit
+        g.update_playing_table
+        break if (Deck.total_of_hand player.hand) > 21
+      end
+    else
+      # if the player is AI
+      while [true, false].sample && player.hand != "BUSTED"
+        player.hit
+        g.update_playing_table
+        break if (Deck.total_of_hand player.hand) > 21
+      end
+    end
+  end
+  
+  # now it's the dealer's turn
+  g.dealer.take_turn
+  g.update_playing_table
+  
+  # ask human to play another round
+  break unless g.play_again?
+end 
+system("clear")
+puts "Thanks for Playing!"
